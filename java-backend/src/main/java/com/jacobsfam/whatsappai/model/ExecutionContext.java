@@ -8,7 +8,7 @@ import lombok.Data;
  * Provides security and session context to tools.
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 public class ExecutionContext {
 
     /**
@@ -25,4 +25,14 @@ public class ExecutionContext {
      * Optional: Tool call ID from LLM (for multi-turn tracking).
      */
     private String toolCallId;
+
+    /**
+     * Optional: Group ID if this is a group chat (e.g., 123456789-1234567890@g.us).
+     */
+    private String groupId;
+
+    /**
+     * Whether this is a group chat.
+     */
+    private boolean isGroup;
 }

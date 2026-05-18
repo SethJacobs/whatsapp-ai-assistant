@@ -78,19 +78,38 @@ public class WebhookController {
     }
 
     private String processMessage(WhatsAppMessage message) {
-        String userPhone = message.getFrom();
         String messageText = message.getText();
+        boolean isGroup = Boolean.TRUE.equals(message.getIsGroup());
 
-        // Security check - silently ignore unauthorized numbers
-        if (!securityService.isPhoneAllowed(userPhone)) {
-            log.warn("Unauthorized access attempt from {} - ignoring message", userPhone);
-            return null; // Return null to prevent any response
+        // Determine chat ID and sender
+        String chatId = isGroup ? message.getGroupId() : message.getFrom();
+        String senderPhone = isGroup ? message.getParticipant() : message.getFrom();
+
+        // Get chat context (authorization + permissions)
+        com.jacobsfam.whatsappai.model.ChatContext chatContext =
+            securityService.getChatContext(chatId, senderPhone);
+
+        if (chatContext == null) {
+            // Not authorized - silently ignore
+            log.warn("Unauthorized access attempt from {} (group: {}) - ignoring message",
+                    senderPhone, isGroup);
+            return null;
+        }
+
+        // Check if read-only mode
+        if (chatContext.isReadOnly()) {
+            log.info("Read-only group {} - processing for context but not responding", chatId);
+            // Process message for context/learning but don't send response
+            processForContext(message, chatContext);
+            return null; // Don't send response
         }
 
         // Create execution context
         ExecutionContext context = ExecutionContext.builder()
-            .userPhone(userPhone)
+            .userPhone(senderPhone)
             .sessionId(UUID.randomUUID().toString())
+            .groupId(isGroup ? message.getGroupId() : null)
+            .isGroup(isGroup)
             .build();
 
         // Route message (command vs LLM)
@@ -219,5 +238,25 @@ public class WebhookController {
         conversationService.addMessage(userPhone, finalMessage);
 
         return finalMessage.getContent();
+    }
+
+    /**
+     * Process message from read-only groups for context building.
+     * Saves the message to conversation history but doesn't generate a response.
+     */
+    private void processForContext(WhatsAppMessage message,
+                                   com.jacobsfam.whatsappai.model.ChatContext chatContext) {
+        String chatId = chatContext.getChatId();
+        String senderName = message.getName() != null ? message.getName() : "Unknown";
+        String messageText = message.getText();
+
+        // Format message with sender name for group context
+        String contextMessage = String.format("[%s]: %s", senderName, messageText);
+
+        // Save to conversation history
+        ChatMessage userMessage = ChatMessage.user(contextMessage);
+        conversationService.addMessage(chatId, userMessage);
+
+        log.debug("Saved read-only message from group {} for context", chatContext.getDisplayName());
     }
 }

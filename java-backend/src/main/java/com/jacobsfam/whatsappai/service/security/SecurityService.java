@@ -1,7 +1,10 @@
 package com.jacobsfam.whatsappai.service.security;
 
+import com.jacobsfam.whatsappai.model.ChatContext;
 import com.jacobsfam.whatsappai.model.entity.AllowedContact;
+import com.jacobsfam.whatsappai.model.entity.AllowedGroup;
 import com.jacobsfam.whatsappai.repository.AllowedContactRepository;
+import com.jacobsfam.whatsappai.repository.AllowedGroupRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -17,6 +21,9 @@ public class SecurityService {
 
     @Autowired
     private AllowedContactRepository allowedContactRepository;
+
+    @Autowired
+    private AllowedGroupRepository allowedGroupRepository;
 
     @Value("${security.allowed-phones}")
     private List<String> defaultAllowedPhones;
@@ -30,6 +37,7 @@ public class SecurityService {
                 contact.grantAllPermissions("system");
                 contact.grantAllPermissions("docker");
                 contact.grantAllPermissions("gateway");
+                contact.grantAllPermissions("admin"); // Grant admin permissions
                 allowedContactRepository.save(contact);
                 log.info("Created admin contact: {}", phone);
             }
@@ -44,6 +52,129 @@ public class SecurityService {
         return allowedContactRepository.findByPhoneNumber(normalized)
                 .map(AllowedContact::isEnabled)
                 .orElse(false);
+    }
+
+    /**
+     * Alias for isAuthorized - checks if phone is in allowlist.
+     */
+    public boolean isPhoneAllowed(String phoneNumber) {
+        return isAuthorized(phoneNumber);
+    }
+
+    /**
+     * Check if a group is authorized.
+     */
+    public boolean isGroupAllowed(String groupId) {
+        return allowedGroupRepository.findByGroupId(groupId).isPresent();
+    }
+
+    /**
+     * Build chat context for authorization and permissions.
+     */
+    public ChatContext getChatContext(String chatId, String senderPhone) {
+        // Determine if this is a group (contains @g.us)
+        if (chatId.contains("@g.us")) {
+            // Group chat
+            Optional<AllowedGroup> groupOpt = allowedGroupRepository.findByGroupId(chatId);
+            if (groupOpt.isPresent()) {
+                AllowedGroup group = groupOpt.get();
+                return ChatContext.builder()
+                        .chatType(ChatContext.ChatType.GROUP)
+                        .chatId(chatId)
+                        .senderPhone(senderPhone)
+                        .readOnly(group.isReadOnly())
+                        .permissions(group.getPermissions())
+                        .displayName(group.getGroupName())
+                        .build();
+            }
+            return null; // Group not allowed
+        } else {
+            // Individual chat
+            Optional<AllowedContact> contactOpt = allowedContactRepository.findByPhoneNumber(
+                    normalizePhoneNumber(senderPhone));
+            if (contactOpt.isPresent()) {
+                AllowedContact contact = contactOpt.get();
+                return ChatContext.builder()
+                        .chatType(ChatContext.ChatType.INDIVIDUAL)
+                        .chatId(senderPhone)
+                        .senderPhone(senderPhone)
+                        .readOnly(false) // Individual chats are never read-only
+                        .permissions(contact.getPermissions())
+                        .displayName(contact.getLabel())
+                        .build();
+            }
+            return null; // Contact not allowed
+        }
+    }
+
+    /**
+     * Check if user is an admin (has admin:* permissions).
+     */
+    public boolean isAdmin(String phoneNumber) {
+        String normalized = normalizePhoneNumber(phoneNumber);
+        return allowedContactRepository.findByPhoneNumber(normalized)
+                .map(contact -> contact.getGrantedPermissions().contains("admin:*"))
+                .orElse(false);
+    }
+
+    /**
+     * Add a new contact to the allowlist.
+     */
+    public void addContact(String phoneNumber, String label, String permissions) {
+        String normalized = normalizePhoneNumber(phoneNumber);
+
+        Optional<AllowedContact> existing = allowedContactRepository.findByPhoneNumber(normalized);
+        if (existing.isPresent()) {
+            throw new IllegalArgumentException("Contact already exists: " + normalized);
+        }
+
+        AllowedContact contact = new AllowedContact(normalized, label);
+        contact.setPermissions(permissions);
+        allowedContactRepository.save(contact);
+        log.info("Added contact: {} with permissions: {}", normalized, permissions);
+    }
+
+    /**
+     * Remove a contact from the allowlist.
+     */
+    public void removeContact(String phoneNumber) {
+        String normalized = normalizePhoneNumber(phoneNumber);
+
+        Optional<AllowedContact> contact = allowedContactRepository.findByPhoneNumber(normalized);
+        if (contact.isPresent()) {
+            allowedContactRepository.delete(contact.get());
+            log.info("Removed contact: {}", normalized);
+        } else {
+            throw new IllegalArgumentException("Contact not found: " + normalized);
+        }
+    }
+
+    /**
+     * Add a group to the allowlist.
+     */
+    public void addGroup(String groupId, String groupName, boolean readOnly, String permissions) {
+        Optional<AllowedGroup> existing = allowedGroupRepository.findByGroupId(groupId);
+        if (existing.isPresent()) {
+            throw new IllegalArgumentException("Group already exists: " + groupId);
+        }
+
+        AllowedGroup group = new AllowedGroup(groupId, groupName, readOnly);
+        group.setPermissions(permissions);
+        allowedGroupRepository.save(group);
+        log.info("Added group: {} (read-only: {}) with permissions: {}", groupName, readOnly, permissions);
+    }
+
+    /**
+     * Remove a group from the allowlist.
+     */
+    public void removeGroup(String groupId) {
+        Optional<AllowedGroup> group = allowedGroupRepository.findByGroupId(groupId);
+        if (group.isPresent()) {
+            allowedGroupRepository.delete(group.get());
+            log.info("Removed group: {}", groupId);
+        } else {
+            throw new IllegalArgumentException("Group not found: " + groupId);
+        }
     }
 
     /**

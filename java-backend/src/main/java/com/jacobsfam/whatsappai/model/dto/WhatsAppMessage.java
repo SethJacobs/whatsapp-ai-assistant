@@ -22,4 +22,13 @@ public class WhatsAppMessage {
 
     @JsonProperty("isGroup")
     private Boolean isGroup;
+
+    @JsonProperty("groupId")
+    private String groupId;
+
+    @JsonProperty("groupName")
+    private String groupName;
+
+    @JsonProperty("participant")
+    private String participant; // For group messages: the sender's phone number
 }
