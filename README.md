@@ -69,12 +69,53 @@ curl -X POST http://localhost:3000/bridge/send \
 
 ## Development Roadmap
 
-- [x] Phase 1: Node.js WhatsApp Bridge
-- [ ] Phase 2: Java Backend Foundation
+- [x] Phase 1: Node.js WhatsApp Bridge ✅
+- [x] Phase 2: Java Backend Foundation ✅
 - [ ] Phase 3: Pi-AI-Gateway Integration
 - [ ] Phase 4: Tool System
 - [ ] Phase 5: Message Routing & Commands
 - [ ] Phase 6: Security & Deployment
+
+## Deployment on Pi
+
+```bash
+# Clone repo on Pi
+git clone <repo-url> /home/pi/whatsapp-ai-assistant
+cd /home/pi/whatsapp-ai-assistant
+
+# Create .env file with your configuration
+cat > .env <<EOF
+ADMIN_PHONE=+1234567890
+GATEWAY_BASE_URL=http://ai-gateway.local
+EOF
+
+# Run installation script
+./deploy/install.sh
+
+# The script will:
+# 1. Build Docker images
+# 2. Start WhatsApp bridge and display QR code
+# 3. Wait for you to scan QR code
+# 4. Start Java backend
+# 5. Verify all services are running
+```
+
+## Architecture Status
+
+**Phase 1 & 2 Complete:**
+- ✅ WhatsApp bridge with QR authentication
+- ✅ Message sending/receiving via REST API
+- ✅ Java Spring Boot backend with SQLite
+- ✅ Database entities for conversations & security
+- ✅ Webhook processing with async handling
+- ✅ Docker Compose orchestration
+- ✅ Basic echo bot functionality
+
+**Coming Next (Phase 3):**
+- Pi-AI-Gateway HTTP client
+- OpenAI-compatible request/response models
+- Multi-turn tool calling support
+- Circuit breaker resilience
 
 ## License
 
