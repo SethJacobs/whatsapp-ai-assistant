@@ -1,0 +1,61 @@
+# Add these services to your ~/home-server/docker-compose.yml
+# Place them with your other services
+
+  whatsapp-bridge:
+    build:
+      context: /home/pi/home-server/whatsapp-ai-assistant/whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    restart: unless-stopped
+    ports:
+      - "3002:3000"  # External access for QR code
+    volumes:
+      - ./whatsapp-ai-assistant/whatsapp-bridge/.wwebjs_auth:/app/.wwebjs_auth
+      - ./whatsapp-ai-assistant/whatsapp-bridge/.wwebjs_cache:/app/.wwebjs_cache
+    environment:
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://whatsapp-ai-backend:8081/webhook/message
+      - LOG_LEVEL=info
+    networks:
+      vpn_net:
+        ipv4_address: 10.10.200.30
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/bridge/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  whatsapp-ai-backend:
+    build:
+      context: /home/pi/home-server/whatsapp-ai-assistant/java-backend
+      dockerfile: Dockerfile
+    container_name: whatsapp-ai-backend
+    restart: unless-stopped
+    ports:
+      - "8084:8081"  # External access if needed
+    volumes:
+      - ./whatsapp-ai-assistant/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - GATEWAY_BASE_URL=http://ai-gateway:8080
+      - ADMIN_PHONE=${WHATSAPP_ADMIN_PHONE}
+      - ADDITIONAL_ADMIN_PHONES=${WHATSAPP_ADDITIONAL_ADMINS:-}
+      - DB_PATH=/app/data/whatsapp-ai.db
+    networks:
+      vpn_net:
+        ipv4_address: 10.10.200.31
+    depends_on:
+      whatsapp-bridge:
+        condition: service_healthy
+      ai-gateway:
+        condition: service_started
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
