@@ -1,5 +1,6 @@
 package com.jacobsfam.whatsappai.controller;
 
+import com.jacobsfam.whatsappai.model.dto.MessageResponse;
 import com.jacobsfam.whatsappai.model.dto.WhatsAppMessage;
 import com.jacobsfam.whatsappai.service.bridge.WhatsAppBridgeClient;
 import com.jacobsfam.whatsappai.service.routing.MessageRouter;
@@ -28,8 +29,13 @@ public class WebhookController {
         // Process async to avoid blocking webhook
         CompletableFuture.runAsync(() -> {
             try {
-                String response = messageRouter.routeMessage(message.getFrom(), message.getText());
-                bridgeClient.sendMessage(message.getFrom(), response);
+                MessageResponse response = messageRouter.route(message);
+
+                String responseText = response.isSuccess()
+                    ? response.getText()
+                    : (response.getError() != null ? response.getError() : "Unknown error");
+
+                bridgeClient.sendMessage(message.getFrom(), responseText);
             } catch (Exception e) {
                 log.error("Error processing message", e);
                 bridgeClient.sendMessage(message.getFrom(),
