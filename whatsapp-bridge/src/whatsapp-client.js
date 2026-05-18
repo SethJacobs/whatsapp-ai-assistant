@@ -74,10 +74,12 @@ class WhatsAppClient {
             await this.handleIncomingMessage(message);
         });
 
-        this.client.on('message_create', (message) => {
-            // Log sent messages
+        this.client.on('message_create', async (message) => {
+            // Process messages you send (for self-chat / notes to self)
             if (message.fromMe) {
                 logger.debug('Message sent:', message.body);
+                // Forward self-messages to webhook for processing
+                await this.handleIncomingMessage(message);
             }
         });
     }
