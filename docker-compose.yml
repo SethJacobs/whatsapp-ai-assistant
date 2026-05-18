@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/wwebjs_auth:/app/.wwebjs_auth
+      - ./data/wwebjs_cache:/app/.wwebjs_cache
+    environment:
+      - WEBHOOK_URL=http://whatsapp-ai:8081/webhook/message
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/bridge/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  whatsapp-ai:
+    build:
+      context: ./java-backend
+      dockerfile: Dockerfile
+    container_name: whatsapp-ai
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data/db:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker API access
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - GATEWAY_BASE_URL=${GATEWAY_BASE_URL:-http://ai-gateway.local}
+      - BRIDGE_BASE_URL=http://whatsapp-bridge:3000
+      - ADMIN_PHONE=${ADMIN_PHONE}
+      - DATA_DIR=/app/data
+    env_file:
+      - .env
+    depends_on:
+      whatsapp-bridge:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
