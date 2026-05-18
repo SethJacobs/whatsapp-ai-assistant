@@ -1,14 +1,26 @@
 package com.jacobsfam.whatsappai.controller;
 
-import com.jacobsfam.whatsappai.model.dto.MessageResponse;
-import com.jacobsfam.whatsappai.model.dto.WhatsAppMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jacobsfam.whatsappai.model.ExecutionContext;
+import com.jacobsfam.whatsappai.model.Tool;
+import com.jacobsfam.whatsappai.model.ToolExecutionResult;
+import com.jacobsfam.whatsappai.model.dto.*;
 import com.jacobsfam.whatsappai.service.bridge.WhatsAppBridgeClient;
+import com.jacobsfam.whatsappai.service.conversation.ConversationService;
+import com.jacobsfam.whatsappai.service.gateway.GatewayClient;
 import com.jacobsfam.whatsappai.service.routing.MessageRouter;
+import com.jacobsfam.whatsappai.service.security.SecurityService;
+import com.jacobsfam.whatsappai.service.tools.ToolExecutor;
+import com.jacobsfam.whatsappai.service.tools.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -22,6 +34,24 @@ public class WebhookController {
     @Autowired
     private MessageRouter messageRouter;
 
+    @Autowired
+    private SecurityService securityService;
+
+    @Autowired
+    private ConversationService conversationService;
+
+    @Autowired
+    private GatewayClient gatewayClient;
+
+    @Autowired
+    private ToolRegistry toolRegistry;
+
+    @Autowired
+    private ToolExecutor toolExecutor;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @PostMapping("/message")
     public ResponseEntity<Void> handleIncomingMessage(@RequestBody WhatsAppMessage message) {
         log.info("Received message from {}: {}", message.getFrom(), message.getText());
@@ -29,15 +59,10 @@ public class WebhookController {
         // Process async to avoid blocking webhook
         CompletableFuture.runAsync(() -> {
             try {
-                MessageResponse response = messageRouter.route(message);
-
-                String responseText = response.isSuccess()
-                    ? response.getText()
-                    : (response.getError() != null ? response.getError() : "Unknown error");
-
+                String responseText = processMessage(message);
                 bridgeClient.sendMessage(message.getFrom(), responseText);
             } catch (Exception e) {
-                log.error("Error processing message", e);
+                log.error("Error processing message from {}", message.getFrom(), e);
                 bridgeClient.sendMessage(message.getFrom(),
                     "❌ Error: " + e.getMessage());
             }
@@ -46,4 +71,147 @@ public class WebhookController {
         return ResponseEntity.ok().build();
     }
 
+    private String processMessage(WhatsAppMessage message) {
+        String userPhone = message.getFrom();
+        String messageText = message.getText();
+
+        // Security check
+        if (!securityService.isPhoneAllowed(userPhone)) {
+            log.warn("Unauthorized access attempt from {}", userPhone);
+            return "❌ Unauthorized. Your phone number is not in the allowlist.";
+        }
+
+        // Create execution context
+        ExecutionContext context = ExecutionContext.builder()
+            .userPhone(userPhone)
+            .sessionId(UUID.randomUUID().toString())
+            .build();
+
+        // Route message (command vs LLM)
+        MessageRouter.RouteResult routeResult = messageRouter.route(messageText, context);
+
+        // Handle command
+        if (routeResult.isCommand()) {
+            return routeResult.getResponse();
+        }
+
+        // Handle routing error
+        if (routeResult.isError()) {
+            return routeResult.getResponse();
+        }
+
+        // Handle LLM (natural language query)
+        return processLlmMessage(message, context);
+    }
+
+    private String processLlmMessage(WhatsAppMessage message, ExecutionContext context) {
+        String userPhone = message.getFrom();
+        String messageText = message.getText();
+
+        // Get or create conversation
+        List<ChatMessage> history = conversationService.getConversationHistory(userPhone);
+
+        // Add user message to history
+        ChatMessage userMessage = ChatMessage.user(messageText);
+        history.add(userMessage);
+
+        // Create chat request with tools
+        ChatCompletionRequest request = ChatCompletionRequest.builder()
+            .messages(history)
+            .tools(toolRegistry.getToolDefinitionsForGateway())
+            .build();
+
+        // Send to gateway
+        ChatCompletionResponse gatewayResponse = gatewayClient.chat(request);
+
+        // Check if LLM wants to use tools
+        ChatMessage assistantMessage = gatewayResponse.getFirstMessage();
+        if (assistantMessage.getToolCalls() != null && !assistantMessage.getToolCalls().isEmpty()) {
+            return handleToolCalls(message, history, gatewayResponse, context);
+        }
+
+        // No tools - save conversation and return response
+        conversationService.saveConversation(userPhone, history);
+        conversationService.addMessage(userPhone, assistantMessage);
+
+        return assistantMessage.getContent();
+    }
+
+    private String handleToolCalls(WhatsAppMessage message, List<ChatMessage> history,
+                                   ChatCompletionResponse gatewayResponse, ExecutionContext context) {
+        String userPhone = message.getFrom();
+
+        // Add assistant's tool_calls message to history
+        ChatMessage assistantMessage = gatewayResponse.getFirstMessage();
+        history.add(assistantMessage);
+
+        // Execute each tool and add results to history
+        for (ToolCall toolCall : assistantMessage.getToolCalls()) {
+            String toolName = toolCall.getFunction().getName();
+            String argumentsJson = toolCall.getFunction().getArguments();
+
+            log.info("Executing tool: {} with args: {}", toolName, argumentsJson);
+
+            // Get tool from registry
+            Tool tool = toolRegistry.getTool(toolName);
+            if (tool == null) {
+                log.error("Unknown tool requested by LLM: {}", toolName);
+                ChatMessage errorResponse = ChatMessage.tool(
+                    toolCall.getId(),
+                    toolName,
+                    "Error: Unknown tool"
+                );
+                history.add(errorResponse);
+                continue;
+            }
+
+            // Parse arguments
+            Map<String, Object> arguments;
+            try {
+                arguments = objectMapper.readValue(argumentsJson, Map.class);
+            } catch (Exception e) {
+                log.error("Failed to parse tool arguments: {}", argumentsJson, e);
+                ChatMessage errorResponse = ChatMessage.tool(
+                    toolCall.getId(),
+                    toolName,
+                    "Error: Invalid arguments format"
+                );
+                history.add(errorResponse);
+                continue;
+            }
+
+            // Update context with tool call ID
+            ExecutionContext toolContext = context.toBuilder()
+                .toolCallId(toolCall.getId())
+                .build();
+
+            // Execute tool
+            ToolExecutionResult result = toolExecutor.execute(tool, arguments, toolContext);
+
+            // Convert result to tool response message
+            String resultContent = result.isSuccess()
+                ? result.getOutput()
+                : "Error: " + result.getError();
+
+            ChatMessage toolResponse = ChatMessage.tool(toolCall.getId(), toolName, resultContent);
+            history.add(toolResponse);
+
+            log.info("Tool {} executed with result: {}", toolName, result.isSuccess() ? "success" : "error");
+        }
+
+        // Send conversation with tool results back to gateway for final response
+        ChatCompletionRequest followUpRequest = ChatCompletionRequest.builder()
+            .messages(history)
+            .tools(toolRegistry.getToolDefinitionsForGateway())
+            .build();
+
+        ChatCompletionResponse finalResponse = gatewayClient.chat(followUpRequest);
+        ChatMessage finalMessage = finalResponse.getFirstMessage();
+
+        // Save full conversation including tool calls
+        conversationService.saveConversation(userPhone, history);
+        conversationService.addMessage(userPhone, finalMessage);
+
+        return finalMessage.getContent();
+    }
 }

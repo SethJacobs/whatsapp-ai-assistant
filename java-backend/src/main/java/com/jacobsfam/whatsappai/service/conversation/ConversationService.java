@@ -88,6 +88,24 @@ public class ConversationService {
         log.debug("Saved {} messages to conversation {}", messages.size(), conversation.getId());
     }
 
+    @Transactional
+    public void clearConversation(String phoneNumber) {
+        conversationRepository.findFirstByPhoneNumberOrderByLastMessageAtDesc(phoneNumber)
+                .ifPresent(conversation -> {
+                    conversationRepository.delete(conversation);
+                    log.info("Cleared conversation for {}", phoneNumber);
+                });
+    }
+
+    // Aliases for consistency
+    public List<ChatMessage> getConversationHistory(String phoneNumber) {
+        return getHistory(phoneNumber);
+    }
+
+    public void saveConversation(String phoneNumber, List<ChatMessage> messages) {
+        saveExchange(phoneNumber, messages);
+    }
+
     private Conversation createNewConversation(String phoneNumber) {
         Conversation conversation = new Conversation(phoneNumber);
         conversationRepository.save(conversation);
