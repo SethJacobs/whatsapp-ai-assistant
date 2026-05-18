@@ -5,6 +5,7 @@ import com.jacobsfam.whatsappai.model.ExecutionContext;
 import com.jacobsfam.whatsappai.service.routing.MessageRouter;
 import com.jacobsfam.whatsappai.service.security.SecurityService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -19,7 +20,7 @@ public class HelpCommand implements Command {
     private final SecurityService securityService;
 
     @Autowired
-    public HelpCommand(MessageRouter messageRouter, SecurityService securityService) {
+    public HelpCommand(@Lazy MessageRouter messageRouter, SecurityService securityService) {
         this.messageRouter = messageRouter;
         this.securityService = securityService;
     }
