@@ -84,12 +84,14 @@ class WhatsAppClient {
 
     async handleIncomingMessage(message) {
         try {
-            // Ignore group messages and status updates
-            if (message.from.includes('@g.us') || message.from === 'status@broadcast') {
+            // Ignore status updates only
+            if (message.from === 'status@broadcast') {
                 return;
             }
 
-            logger.info(`Received message from ${message.from}: ${message.body}`);
+            const isGroup = message.from.includes('@g.us');
+            const source = isGroup ? `group ${message.from}` : message.from;
+            logger.info(`Received message from ${source}: ${message.body}`);
 
             // Forward to webhook if configured
             if (this.webhookUrl) {
@@ -102,15 +104,31 @@ class WhatsAppClient {
 
     async forwardToWebhook(message) {
         try {
-            const contact = await message.getContact();
+            const isGroup = message.from.includes('@g.us');
 
-            const payload = {
+            let payload = {
                 from: message.from,
-                name: contact.pushname || contact.name || message.from,
                 text: message.body,
                 timestamp: message.timestamp,
-                isGroup: message.from.includes('@g.us')
+                isGroup: isGroup
             };
+
+            if (isGroup) {
+                // Group message
+                const chat = await message.getChat();
+                const contact = await message.getContact();
+
+                payload.groupId = message.from;
+                payload.groupName = chat.name || 'Unknown Group';
+                payload.participant = message.author; // Sender's phone number
+                payload.name = contact.pushname || contact.name || message.author;
+
+                logger.debug(`Group message: ${chat.name} from ${contact.pushname || message.author}`);
+            } else {
+                // Individual message
+                const contact = await message.getContact();
+                payload.name = contact.pushname || contact.name || message.from;
+            }
 
             const response = await fetch(this.webhookUrl, {
                 method: 'POST',
@@ -122,6 +140,8 @@ class WhatsAppClient {
 
             if (!response.ok) {
                 logger.error(`Webhook returned ${response.status}`);
+            } else {
+                logger.debug(`Message forwarded to webhook successfully`);
             }
         } catch (error) {
             logger.error('Error forwarding to webhook:', error);
@@ -138,14 +158,18 @@ class WhatsAppClient {
             throw new Error('WhatsApp client is not ready');
         }
 
-        // Format phone number (ensure it's in WhatsApp format)
+        // Format chat ID (ensure it's in WhatsApp format)
         let chatId = to;
         if (!to.includes('@')) {
+            // Individual chat - add @c.us
             chatId = to.replace(/[^0-9]/g, '') + '@c.us';
         }
+        // Groups already have @g.us, so pass through as-is
 
         await this.client.sendMessage(chatId, message);
-        logger.info(`Message sent to ${chatId}`);
+
+        const isGroup = chatId.includes('@g.us');
+        logger.info(`Message sent to ${isGroup ? 'group' : 'individual'} ${chatId}`);
     }
 
     setWebhook(url) {

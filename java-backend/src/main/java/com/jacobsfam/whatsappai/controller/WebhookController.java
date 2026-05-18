@@ -54,21 +54,27 @@ public class WebhookController {
 
     @PostMapping("/message")
     public ResponseEntity<Void> handleIncomingMessage(@RequestBody WhatsAppMessage message) {
-        log.info("Received message from {}: {}", message.getFrom(), message.getText());
+        boolean isGroup = Boolean.TRUE.equals(message.getIsGroup());
+        String source = isGroup ? "group " + message.getGroupId() : message.getFrom();
+        log.info("Received message from {}: {}", source, message.getText());
 
         // Process async to avoid blocking webhook
         CompletableFuture.runAsync(() -> {
             try {
                 String responseText = processMessage(message);
-                // Only send response if not null (null = unauthorized, silently ignore)
+                // Only send response if not null (null = unauthorized or read-only, silently ignore)
                 if (responseText != null) {
-                    bridgeClient.sendMessage(message.getFrom(), responseText);
+                    // Send to group if group message, otherwise to individual
+                    String recipient = isGroup ? message.getGroupId() : message.getFrom();
+                    bridgeClient.sendMessage(recipient, responseText);
                 }
             } catch (Exception e) {
-                log.error("Error processing message from {}", message.getFrom(), e);
+                log.error("Error processing message from {}", source, e);
                 // Only send error messages to authorized users
-                if (securityService.isPhoneAllowed(message.getFrom())) {
-                    bridgeClient.sendMessage(message.getFrom(),
+                String sender = isGroup ? message.getParticipant() : message.getFrom();
+                if (securityService.isPhoneAllowed(sender)) {
+                    String recipient = isGroup ? message.getGroupId() : message.getFrom();
+                    bridgeClient.sendMessage(recipient,
                         "❌ Error: " + e.getMessage());
                 }
             }
