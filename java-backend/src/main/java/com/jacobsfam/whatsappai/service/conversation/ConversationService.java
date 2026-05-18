@@ -69,6 +69,11 @@ public class ConversationService {
     }
 
     @Transactional
+    public void addMessage(String phoneNumber, ChatMessage message) {
+        appendMessage(phoneNumber, message);
+    }
+
+    @Transactional
     public void saveExchange(String phoneNumber, List<ChatMessage> messages) {
         Conversation conversation = conversationRepository
                 .findFirstByPhoneNumberOrderByLastMessageAtDesc(phoneNumber)
