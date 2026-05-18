@@ -24,8 +24,13 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Clear any npm auth config and use public registry
+RUN npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true && \
+    npm config set registry https://registry.npmjs.org/ && \
+    rm -f ~/.npmrc /root/.npmrc 2>/dev/null || true
+
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy application code
 COPY . .
