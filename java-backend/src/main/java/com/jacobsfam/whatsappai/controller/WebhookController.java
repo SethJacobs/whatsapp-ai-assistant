@@ -60,11 +60,17 @@ public class WebhookController {
         CompletableFuture.runAsync(() -> {
             try {
                 String responseText = processMessage(message);
-                bridgeClient.sendMessage(message.getFrom(), responseText);
+                // Only send response if not null (null = unauthorized, silently ignore)
+                if (responseText != null) {
+                    bridgeClient.sendMessage(message.getFrom(), responseText);
+                }
             } catch (Exception e) {
                 log.error("Error processing message from {}", message.getFrom(), e);
-                bridgeClient.sendMessage(message.getFrom(),
-                    "❌ Error: " + e.getMessage());
+                // Only send error messages to authorized users
+                if (securityService.isPhoneAllowed(message.getFrom())) {
+                    bridgeClient.sendMessage(message.getFrom(),
+                        "❌ Error: " + e.getMessage());
+                }
             }
         });
 
@@ -75,10 +81,10 @@ public class WebhookController {
         String userPhone = message.getFrom();
         String messageText = message.getText();
 
-        // Security check
+        // Security check - silently ignore unauthorized numbers
         if (!securityService.isPhoneAllowed(userPhone)) {
-            log.warn("Unauthorized access attempt from {}", userPhone);
-            return "❌ Unauthorized. Your phone number is not in the allowlist.";
+            log.warn("Unauthorized access attempt from {} - ignoring message", userPhone);
+            return null; // Return null to prevent any response
         }
 
         // Create execution context
