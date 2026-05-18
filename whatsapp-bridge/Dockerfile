@@ -29,8 +29,8 @@ RUN npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true && \
     npm config set registry https://registry.npmjs.org/ && \
     rm -f ~/.npmrc /root/.npmrc 2>/dev/null || true
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install dependencies (use install instead of ci to skip lock file)
+RUN npm install --omit=dev
 
 # Copy application code
 COPY . .
