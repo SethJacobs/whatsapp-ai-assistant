@@ -6,47 +6,56 @@ services:
       context: ./whatsapp-bridge
       dockerfile: Dockerfile
     container_name: whatsapp-bridge
+    restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - ./data/wwebjs_auth:/app/.wwebjs_auth
-      - ./data/wwebjs_cache:/app/.wwebjs_cache
+      - ./whatsapp-bridge/.wwebjs_auth:/app/.wwebjs_auth
+      - ./whatsapp-bridge/.wwebjs_cache:/app/.wwebjs_cache
     environment:
-      - WEBHOOK_URL=http://whatsapp-ai:8081/webhook/message
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://java-backend:8081/webhook/message
       - LOG_LEVEL=info
-    restart: unless-stopped
+    networks:
+      - whatsapp-ai
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/bridge/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
+      start_period: 40s
 
-  whatsapp-ai:
+  java-backend:
     build:
       context: ./java-backend
       dockerfile: Dockerfile
-    container_name: whatsapp-ai
+    container_name: java-backend
+    restart: unless-stopped
     ports:
       - "8081:8081"
     volumes:
-      - ./data/db:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock  # Docker API access
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker API access (read-only)
     environment:
       - SPRING_PROFILES_ACTIVE=production
       - GATEWAY_BASE_URL=${GATEWAY_BASE_URL:-http://ai-gateway.local}
-      - BRIDGE_BASE_URL=http://whatsapp-bridge:3000
       - ADMIN_PHONE=${ADMIN_PHONE}
-      - DATA_DIR=/app/data
-    env_file:
-      - .env
+      - ADDITIONAL_ADMIN_PHONES=${ADDITIONAL_ADMIN_PHONES:-}
+      - DB_PATH=/app/data/whatsapp-ai.db
+    networks:
+      - whatsapp-ai
     depends_on:
       whatsapp-bridge:
         condition: service_healthy
-    restart: unless-stopped
     mem_limit: 512m
     cpus: "1.0"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
+      start_period: 60s
+
+networks:
+  whatsapp-ai:
+    driver: bridge
