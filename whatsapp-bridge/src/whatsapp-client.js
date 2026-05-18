@@ -198,7 +198,16 @@ class WhatsAppClient {
         }
 
         const info = this.client.info;
-        const battery = await this.client.getBatteryLevel();
+
+        // Try to get battery level if available (not all versions support this)
+        let battery = null;
+        try {
+            if (typeof this.client.getBatteryLevel === 'function') {
+                battery = await this.client.getBatteryLevel();
+            }
+        } catch (error) {
+            // Battery level not available, skip it
+        }
 
         return {
             phone: info.wid.user,
