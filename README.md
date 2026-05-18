@@ -72,7 +72,7 @@ curl -X POST http://localhost:3000/bridge/send \
 - [x] Phase 1: Node.js WhatsApp Bridge ✅
 - [x] Phase 2: Java Backend Foundation ✅
 - [x] Phase 3: Pi-AI-Gateway Integration ✅
-- [ ] Phase 4: Tool System
+- [x] Phase 4: Tool System ✅
 - [ ] Phase 5: Message Routing & Commands
 - [ ] Phase 6: Security & Deployment
 
@@ -102,7 +102,7 @@ EOF
 
 ## Architecture Status
 
-**Phase 1, 2 & 3 Complete:**
+**Phase 1, 2, 3 & 4 Complete:**
 - ✅ WhatsApp bridge with QR authentication
 - ✅ Message sending/receiving via REST API
 - ✅ Java Spring Boot backend with SQLite
@@ -114,12 +114,18 @@ EOF
 - ✅ **Multi-turn conversation with context (20 messages, 2hr timeout)**
 - ✅ **Circuit breaker resilience**
 - ✅ **Fully functional AI chat via WhatsApp**
+- ✅ **Tool/skill system with plugin architecture**
+- ✅ **ToolRegistry with auto-discovery**
+- ✅ **ToolExecutor with timeout and security**
+- ✅ **Multi-turn tool calling (OpenAI function calling format)**
+- ✅ **Built-in tools: SystemInfo, DockerPs, GatewayStatus**
+- ✅ **Permission-based security model**
 
-**Coming Next (Phase 4):**
-- Tool/skill system with plugin architecture
-- Tool registry and execution engine
-- Initial built-in tools (system info, Docker, gateway status)
-- Security permissions model
+**Coming Next (Phase 5):**
+- Deterministic command parsing (/help, /status, etc.)
+- LLM fallback for natural language queries
+- Intent classification and routing
+- Command-driven tool invocation
 
 ## License
 
