@@ -25,22 +25,33 @@ public class SecurityService {
     @Autowired
     private AllowedGroupRepository allowedGroupRepository;
 
-    @Value("${security.allowed-phones}")
+    @Value("${security.allowed-phones:}")
     private List<String> defaultAllowedPhones;
 
     @PostConstruct
     public void initializeDefaultContacts() {
         // Initialize admin contacts from config
-        for (String phone : defaultAllowedPhones) {
-            if (!allowedContactRepository.findByPhoneNumber(phone).isPresent()) {
-                AllowedContact contact = new AllowedContact(phone, "Admin");
-                contact.grantAllPermissions("system");
-                contact.grantAllPermissions("docker");
-                contact.grantAllPermissions("gateway");
-                contact.grantAllPermissions("admin"); // Grant admin permissions
-                allowedContactRepository.save(contact);
-                log.info("Created admin contact: {}", phone);
+        if (defaultAllowedPhones != null && !defaultAllowedPhones.isEmpty()) {
+            for (String phone : defaultAllowedPhones) {
+                // Skip empty or placeholder values
+                if (phone == null || phone.trim().isEmpty() || phone.equals("+12125551234")) {
+                    log.warn("Skipping invalid/placeholder admin phone: {}", phone);
+                    continue;
+                }
+
+                String normalized = normalizePhoneNumber(phone);
+                if (!allowedContactRepository.findByPhoneNumber(normalized).isPresent()) {
+                    AllowedContact contact = new AllowedContact(normalized, "Admin");
+                    contact.grantAllPermissions("system");
+                    contact.grantAllPermissions("docker");
+                    contact.grantAllPermissions("gateway");
+                    contact.grantAllPermissions("admin"); // Grant admin permissions
+                    allowedContactRepository.save(contact);
+                    log.info("Created admin contact: {}", normalized);
+                }
             }
+        } else {
+            log.warn("No admin phones configured. Use /adduser command to add authorized users.");
         }
     }
 
