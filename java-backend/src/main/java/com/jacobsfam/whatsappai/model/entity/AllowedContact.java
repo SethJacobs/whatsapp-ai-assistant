@@ -43,4 +43,29 @@ public class AllowedContact {
     public void grantAllPermissions(String category) {
         this.grantedPermissions.add(category + ":*");
     }
+
+    // Aliases for compatibility
+    public String getLabel() {
+        return displayName;
+    }
+
+    public void setLabel(String label) {
+        this.displayName = label;
+    }
+
+    // Get permissions as comma-separated string
+    public String getPermissions() {
+        return grantedPermissions.isEmpty() ? "" : String.join(",", grantedPermissions);
+    }
+
+    // Set permissions from comma-separated string
+    public void setPermissions(String permissions) {
+        this.grantedPermissions.clear();
+        if (permissions != null && !permissions.trim().isEmpty()) {
+            String[] perms = permissions.split(",");
+            for (String perm : perms) {
+                this.grantedPermissions.add(perm.trim());
+            }
+        }
+    }
 }

@@ -222,7 +222,7 @@ public class WebhookController {
             // Convert result to tool response message
             String resultContent = result.isSuccess()
                 ? result.getOutput()
-                : "Error: " + result.getError();
+                : "Error: " + result.getErrorMessage();
 
             ChatMessage toolResponse = ChatMessage.tool(toolCall.getId(), toolName, resultContent);
             history.add(toolResponse);
