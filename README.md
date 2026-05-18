@@ -57,6 +57,46 @@ curl -X POST http://localhost:3000/bridge/send \
   -d '{"to": "+1234567890", "message": "Hello from bridge!"}'
 ```
 
+## Usage
+
+### Commands
+
+Send these commands via WhatsApp:
+
+```
+/help
+  - Shows available commands and usage examples
+
+/status
+  - System info: CPU, memory, disk, uptime, temperature
+
+/docker ps
+  - List running Docker containers
+
+/docker ps -a
+  - List all containers (including stopped)
+
+/gateway status
+  - Check Pi-AI-Gateway health and routing info
+```
+
+### Natural Language
+
+Just ask questions naturally:
+
+```
+"Show me running containers"
+"What's the CPU usage?"
+"Check the gateway status"
+"How much free memory is there?"
+```
+
+The assistant will:
+1. Try to parse as a command first (fast, deterministic)
+2. Fall back to LLM consultation if not a command
+3. Automatically call appropriate tools based on intent
+4. Maintain conversation context for follow-up questions
+
 ## API Endpoints
 
 ### WhatsApp Bridge (Port 3000)
@@ -73,7 +113,7 @@ curl -X POST http://localhost:3000/bridge/send \
 - [x] Phase 2: Java Backend Foundation ✅
 - [x] Phase 3: Pi-AI-Gateway Integration ✅
 - [x] Phase 4: Tool System ✅
-- [ ] Phase 5: Message Routing & Commands
+- [x] Phase 5: Message Routing & Commands ✅
 - [ ] Phase 6: Security & Deployment
 
 ## Deployment on Pi
@@ -102,7 +142,7 @@ EOF
 
 ## Architecture Status
 
-**Phase 1, 2, 3 & 4 Complete:**
+**Phase 1-5 Complete:**
 - ✅ WhatsApp bridge with QR authentication
 - ✅ Message sending/receiving via REST API
 - ✅ Java Spring Boot backend with SQLite
@@ -120,12 +160,16 @@ EOF
 - ✅ **Multi-turn tool calling (OpenAI function calling format)**
 - ✅ **Built-in tools: SystemInfo, DockerPs, GatewayStatus**
 - ✅ **Permission-based security model**
+- ✅ **Deterministic command parsing (/help, /status, /docker, /gateway)**
+- ✅ **LLM fallback for natural language queries**
+- ✅ **Intelligent message routing**
 
-**Coming Next (Phase 5):**
-- Deterministic command parsing (/help, /status, etc.)
-- LLM fallback for natural language queries
-- Intent classification and routing
-- Command-driven tool invocation
+**Coming Next (Phase 6):**
+- Production security hardening
+- 1Password secrets integration
+- Docker deployment scripts
+- Systemd service files
+- Pi installation automation
 
 ## License
 
