@@ -33,6 +33,11 @@ gateway:
 bridge:
   base-url: ${BRIDGE_BASE_URL:http://localhost:3000}
 
+# Home Assistant configuration
+homeassistant:
+  url: ${HOMEASSISTANT_URL:https://ha.jacobsfamjam.dpdns.org}
+  token: ${HOMEASSISTANT_TOKEN}
+
 # Security configuration
 security:
   # Comma-separated list of admin phone numbers
