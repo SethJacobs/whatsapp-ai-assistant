@@ -5,6 +5,7 @@ import com.jacobsfam.whatsappai.service.bridge.WhatsAppBridgeClient;
 import com.jacobsfam.whatsappai.service.security.SecurityService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,8 @@ public class MessageProcessingService {
     @Autowired
     private SecurityService securityService;
 
+    // Use @Lazy to break circular dependency with WebhookController
+    @Lazy
     @Autowired
     private com.jacobsfam.whatsappai.controller.WebhookController webhookController;
 
