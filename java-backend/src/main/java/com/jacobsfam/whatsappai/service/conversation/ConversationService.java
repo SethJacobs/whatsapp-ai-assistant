@@ -42,30 +42,39 @@ public class ConversationService {
         systemMessage.setContent(systemPrompt);
         history.add(systemMessage);
 
-        Conversation conversation = conversationRepository
-                .findFirstByPhoneNumberOrderByLastMessageAtDesc(phoneNumber)
-                .filter(c -> Duration.between(c.getLastMessageAt(), LocalDateTime.now())
-                        .compareTo(SESSION_TIMEOUT) < 0)
-                .orElse(null);
+        try {
+            // Use JOIN FETCH to eagerly load messages
+            Conversation conversation = conversationRepository
+                    .findByPhoneNumberWithMessages(phoneNumber).stream()
+                    .findFirst()
+                    .filter(c -> Duration.between(c.getLastMessageAt(), LocalDateTime.now())
+                            .compareTo(SESSION_TIMEOUT) < 0)
+                    .orElse(null);
 
-        if (conversation == null) {
-            log.debug("No active conversation for {} - starting fresh with system prompt", phoneNumber);
-            return history;
+            if (conversation == null) {
+                log.debug("No active conversation for {} - starting fresh with system prompt", phoneNumber);
+                return history;
+            }
+
+            // Force load messages within transaction to avoid LazyInitializationException
+            List<ConversationMessage> allMessages = new ArrayList<>(conversation.getMessages());
+
+            // Get recent messages
+            List<ConversationMessage> messages = allMessages.stream()
+                    .sorted((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()))
+                    .skip(Math.max(0, allMessages.size() - MAX_HISTORY_MESSAGES))
+                    .collect(Collectors.toList());
+
+            // Add conversation history after system prompt
+            messages.stream()
+                    .map(this::toChatMessage)
+                    .forEach(history::add);
+
+        } catch (Exception e) {
+            log.error("Failed to load conversation history for {} - starting fresh: {}",
+                     phoneNumber, e.getMessage());
+            // Return just the system prompt - conversation continues without history
         }
-
-        // Force load messages within transaction to avoid LazyInitializationException
-        List<ConversationMessage> allMessages = new ArrayList<>(conversation.getMessages());
-
-        // Get recent messages
-        List<ConversationMessage> messages = allMessages.stream()
-                .sorted((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()))
-                .skip(Math.max(0, allMessages.size() - MAX_HISTORY_MESSAGES))
-                .collect(Collectors.toList());
-
-        // Add conversation history after system prompt
-        messages.stream()
-                .map(this::toChatMessage)
-                .forEach(history::add);
 
         return history;
     }

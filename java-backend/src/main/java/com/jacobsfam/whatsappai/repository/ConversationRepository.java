@@ -17,5 +17,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Stri
 
     Optional<Conversation> findFirstByPhoneNumberOrderByLastMessageAtDesc(String phoneNumber);
 
+    @Query("SELECT c FROM Conversation c LEFT JOIN FETCH c.messages WHERE c.phoneNumber = :phoneNumber ORDER BY c.lastMessageAt DESC")
+    List<Conversation> findByPhoneNumberWithMessages(String phoneNumber);
+
     List<Conversation> findByLastMessageAtBefore(LocalDateTime cutoff);
 }
