@@ -68,8 +68,8 @@ public class WebhookController {
         return ResponseEntity.ok().build();
     }
 
-    // Package-private so MessageProcessingService can call it within transaction
-    String processMessage(WhatsAppMessage message) {
+    // Public so MessageProcessingService can call it within transaction
+    public String processMessage(WhatsAppMessage message) {
         String messageText = message.getText();
         boolean isGroup = Boolean.TRUE.equals(message.getIsGroup());
 
