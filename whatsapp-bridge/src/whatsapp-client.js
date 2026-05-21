@@ -90,12 +90,6 @@ class WhatsAppClient {
                 return;
             }
 
-            // Ignore messages sent by the bot itself (prevent echo loop)
-            if (message.fromMe) {
-                logger.debug('Ignoring message from self (fromMe=true)');
-                return;
-            }
-
             const isGroup = message.from.includes('@g.us');
             const source = isGroup ? `group ${message.from}` : message.from;
             logger.info(`Received message from ${source}: ${message.body}`);
