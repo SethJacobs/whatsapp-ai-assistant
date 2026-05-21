@@ -237,20 +237,27 @@ public class MessageProcessingService {
             log.info("Tool {} executed with result: {}", toolName, result.isSuccess() ? "success" : "error");
         }
 
-        // Send conversation with tool results back to gateway for final response
+        // Send conversation with tool results back to gateway for next response
         ChatCompletionRequest followUpRequest = ChatCompletionRequest.builder()
             .messages(history)
             .tools(toolRegistry.getToolDefinitionsForGateway())
             .build();
 
-        ChatCompletionResponse finalResponse = gatewayClient.chat(followUpRequest);
-        ChatMessage finalMessage = finalResponse.getFirstMessage();
+        ChatCompletionResponse followUpResponse = gatewayClient.chat(followUpRequest);
+        ChatMessage followUpMessage = followUpResponse.getFirstMessage();
 
-        // Save full conversation including tool calls
+        // Check if LLM wants to call MORE tools (multi-turn tool calling)
+        if (followUpMessage.getToolCalls() != null && !followUpMessage.getToolCalls().isEmpty()) {
+            log.info("LLM requesting additional tools - continuing multi-turn execution");
+            // Recursively handle more tool calls
+            return handleToolCalls(message, history, followUpResponse, context);
+        }
+
+        // No more tool calls - save final conversation and return response
         conversationService.saveConversation(userPhone, history);
-        conversationService.addMessage(userPhone, finalMessage);
+        conversationService.addMessage(userPhone, followUpMessage);
 
-        return finalMessage.getContent();
+        return followUpMessage.getContent();
     }
 
     /**
