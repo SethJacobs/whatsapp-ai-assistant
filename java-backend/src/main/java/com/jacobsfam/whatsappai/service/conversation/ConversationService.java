@@ -53,10 +53,13 @@ public class ConversationService {
             return history;
         }
 
+        // Force load messages within transaction to avoid LazyInitializationException
+        List<ConversationMessage> allMessages = new ArrayList<>(conversation.getMessages());
+
         // Get recent messages
-        List<ConversationMessage> messages = conversation.getMessages().stream()
+        List<ConversationMessage> messages = allMessages.stream()
                 .sorted((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()))
-                .skip(Math.max(0, conversation.getMessages().size() - MAX_HISTORY_MESSAGES))
+                .skip(Math.max(0, allMessages.size() - MAX_HISTORY_MESSAGES))
                 .collect(Collectors.toList());
 
         // Add conversation history after system prompt
