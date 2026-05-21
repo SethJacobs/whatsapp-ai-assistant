@@ -75,19 +75,24 @@ class WhatsAppClient {
         });
 
         this.client.on('message_create', async (message) => {
-            // Process messages you send (for self-chat / notes to self)
+            // Log outgoing messages for debugging, but DON'T forward to webhook
+            // (would create echo loop where bot processes its own responses)
             if (message.fromMe) {
-                logger.debug('Message sent:', message.body);
-                // Forward self-messages to webhook for processing
-                await this.handleIncomingMessage(message);
+                logger.debug('Message sent by bot:', message.body);
             }
         });
     }
 
     async handleIncomingMessage(message) {
         try {
-            // Ignore status updates only
+            // Ignore status updates
             if (message.from === 'status@broadcast') {
+                return;
+            }
+
+            // Ignore messages sent by the bot itself (prevent echo loop)
+            if (message.fromMe) {
+                logger.debug('Ignoring message from self (fromMe=true)');
                 return;
             }
 
