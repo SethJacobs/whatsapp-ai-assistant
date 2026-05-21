@@ -52,38 +52,24 @@ public class WebhookController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.jacobsfam.whatsappai.service.MessageProcessingService messageProcessingService;
+
     @PostMapping("/message")
     public ResponseEntity<Void> handleIncomingMessage(@RequestBody WhatsAppMessage message) {
         boolean isGroup = Boolean.TRUE.equals(message.getIsGroup());
         String source = isGroup ? "group " + message.getGroupId() : message.getFrom();
         log.info("Received message from {}: {}", source, message.getText());
 
-        // Process async to avoid blocking webhook
-        CompletableFuture.runAsync(() -> {
-            try {
-                String responseText = processMessage(message);
-                // Only send response if not null (null = unauthorized or read-only, silently ignore)
-                if (responseText != null) {
-                    // Send to group if group message, otherwise to individual
-                    String recipient = isGroup ? message.getGroupId() : message.getFrom();
-                    bridgeClient.sendMessage(recipient, responseText);
-                }
-            } catch (Exception e) {
-                log.error("Error processing message from {}", source, e);
-                // Only send error messages to authorized users
-                String sender = isGroup ? message.getParticipant() : message.getFrom();
-                if (securityService.isPhoneAllowed(sender)) {
-                    String recipient = isGroup ? message.getGroupId() : message.getFrom();
-                    bridgeClient.sendMessage(recipient,
-                        "❌ Error: " + e.getMessage());
-                }
-            }
-        });
+        // Process async with proper transaction management
+        // This prevents LazyInitializationException by keeping Hibernate session open
+        messageProcessingService.processMessageAsync(message);
 
         return ResponseEntity.ok().build();
     }
 
-    private String processMessage(WhatsAppMessage message) {
+    // Package-private so MessageProcessingService can call it within transaction
+    String processMessage(WhatsAppMessage message) {
         String messageText = message.getText();
         boolean isGroup = Boolean.TRUE.equals(message.getIsGroup());
 
