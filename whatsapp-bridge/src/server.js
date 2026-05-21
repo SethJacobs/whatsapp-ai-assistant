@@ -50,6 +50,15 @@ app.use((err, req, res, next) => {
 app.listen(PORT, async () => {
     logger.info(`WhatsApp Bridge listening on port ${PORT}`);
 
+    // Set webhook URL from environment variable
+    const webhookUrl = process.env.WEBHOOK_URL;
+    if (webhookUrl) {
+        whatsappClient.setWebhook(webhookUrl);
+        logger.info(`Webhook configured: ${webhookUrl}`);
+    } else {
+        logger.warn('No WEBHOOK_URL configured - messages will not be forwarded');
+    }
+
     // Initialize WhatsApp client
     try {
         await whatsappClient.initialize();
