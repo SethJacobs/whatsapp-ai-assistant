@@ -9,6 +9,7 @@ class WhatsAppClient {
         this.qrCode = null;
         this.isReady = false;
         this.webhookUrl = null;
+        this.sentMessages = new Set(); // Track messages sent by bot
         this.initializeClient();
     }
 
@@ -75,10 +76,19 @@ class WhatsAppClient {
         });
 
         this.client.on('message_create', async (message) => {
-            // Log outgoing messages for debugging, but DON'T forward to webhook
-            // (would create echo loop where bot processes its own responses)
+            // Handle fromMe messages (bot responses OR user self-messages)
             if (message.fromMe) {
-                logger.debug('Outgoing message (fromMe):', message.body);
+                const messageKey = `${message.to}:${message.body}`;
+
+                // Check if this is a message we sent (bot response)
+                if (this.sentMessages.has(messageKey)) {
+                    logger.debug('Bot response sent:', message.body);
+                    return; // Don't forward bot responses
+                }
+
+                // This is a user self-message - forward to webhook
+                logger.debug('Self-message detected, forwarding:', message.body);
+                await this.handleIncomingMessage(message);
             }
         });
     }
@@ -166,6 +176,15 @@ class WhatsAppClient {
             chatId = to.replace(/[^0-9]/g, '') + '@c.us';
         }
         // Groups already have @g.us, so pass through as-is
+
+        // Track this message to prevent echo in message_create
+        const messageKey = `${chatId}:${message}`;
+        this.sentMessages.add(messageKey);
+
+        // Clean up after 5 seconds (message_create should fire immediately)
+        setTimeout(() => {
+            this.sentMessages.delete(messageKey);
+        }, 5000);
 
         await this.client.sendMessage(chatId, message);
 
