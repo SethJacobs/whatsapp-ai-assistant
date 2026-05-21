@@ -3,7 +3,7 @@ spring:
     name: whatsapp-ai
 
   datasource:
-    url: jdbc:sqlite:${DATA_DIR:./data}/whatsapp-ai.db
+    url: jdbc:sqlite:${DB_PATH:./data/whatsapp-ai.db}
     driver-class-name: org.sqlite.JDBC
 
   jpa:
@@ -35,8 +35,9 @@ bridge:
 
 # Security configuration
 security:
-  allowed-phones:
-    - ${ADMIN_PHONE:+12125551234}
+  # Comma-separated list of admin phone numbers
+  admin-phone: ${ADMIN_PHONE:}
+  additional-admin-phones: ${ADDITIONAL_ADMIN_PHONES:}
 
 # Tool execution configuration
 tools:

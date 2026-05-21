@@ -25,17 +25,38 @@ public class SecurityService {
     @Autowired
     private AllowedGroupRepository allowedGroupRepository;
 
-    @Value("${security.allowed-phones:}")
-    private List<String> defaultAllowedPhones;
+    @Value("${security.admin-phone:}")
+    private String adminPhone;
+
+    @Value("${security.additional-admin-phones:}")
+    private String additionalAdminPhones;
 
     @PostConstruct
     public void initializeDefaultContacts() {
+        // Collect all admin phones from env vars
+        List<String> allPhones = new java.util.ArrayList<>();
+
+        // Add primary admin phone
+        if (adminPhone != null && !adminPhone.trim().isEmpty()) {
+            allPhones.add(adminPhone.trim());
+        }
+
+        // Add additional admin phones (comma-separated)
+        if (additionalAdminPhones != null && !additionalAdminPhones.trim().isEmpty()) {
+            String[] phones = additionalAdminPhones.split(",");
+            for (String phone : phones) {
+                if (phone != null && !phone.trim().isEmpty()) {
+                    allPhones.add(phone.trim());
+                }
+            }
+        }
+
         // Initialize admin contacts from config
-        if (defaultAllowedPhones != null && !defaultAllowedPhones.isEmpty()) {
-            for (String phone : defaultAllowedPhones) {
-                // Skip empty or placeholder values
-                if (phone == null || phone.trim().isEmpty() || phone.equals("+12125551234")) {
-                    log.warn("Skipping invalid/placeholder admin phone: {}", phone);
+        if (!allPhones.isEmpty()) {
+            for (String phone : allPhones) {
+                // Skip placeholder values
+                if (phone.equals("+12125551234")) {
+                    log.warn("Skipping placeholder admin phone: {}", phone);
                     continue;
                 }
 
