@@ -29,8 +29,19 @@ public class ConversationService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private String systemPrompt;
+
     @Transactional(readOnly = true)
     public List<ChatMessage> getHistory(String phoneNumber) {
+        List<ChatMessage> history = new ArrayList<>();
+
+        // Always start with system prompt
+        ChatMessage systemMessage = new ChatMessage();
+        systemMessage.setRole("system");
+        systemMessage.setContent(systemPrompt);
+        history.add(systemMessage);
+
         Conversation conversation = conversationRepository
                 .findFirstByPhoneNumberOrderByLastMessageAtDesc(phoneNumber)
                 .filter(c -> Duration.between(c.getLastMessageAt(), LocalDateTime.now())
@@ -38,8 +49,8 @@ public class ConversationService {
                 .orElse(null);
 
         if (conversation == null) {
-            log.debug("No active conversation for {}", phoneNumber);
-            return new ArrayList<>();
+            log.debug("No active conversation for {} - starting fresh with system prompt", phoneNumber);
+            return history;
         }
 
         // Get recent messages
@@ -48,9 +59,12 @@ public class ConversationService {
                 .skip(Math.max(0, conversation.getMessages().size() - MAX_HISTORY_MESSAGES))
                 .collect(Collectors.toList());
 
-        return messages.stream()
+        // Add conversation history after system prompt
+        messages.stream()
                 .map(this::toChatMessage)
-                .collect(Collectors.toList());
+                .forEach(history::add);
+
+        return history;
     }
 
     @Transactional
