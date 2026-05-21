@@ -78,7 +78,7 @@ class WhatsAppClient {
             // Log outgoing messages for debugging, but DON'T forward to webhook
             // (would create echo loop where bot processes its own responses)
             if (message.fromMe) {
-                logger.debug('Message sent by bot:', message.body);
+                logger.debug('Outgoing message (fromMe):', message.body);
             }
         });
     }
