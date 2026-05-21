@@ -231,18 +231,25 @@ public class SecurityService {
 
     /**
      * Normalize phone number to E.164 format.
-     * For now, just trim whitespace. In production, use libphonenumber.
+     * Strips WhatsApp suffixes (@c.us, @g.us, @lid) and ensures + prefix.
      */
     private String normalizePhoneNumber(String phone) {
         if (phone == null) {
             return null;
         }
-        // Simple normalization - trim and ensure starts with +
-        String trimmed = phone.trim();
-        if (!trimmed.startsWith("+")) {
-            trimmed = "+" + trimmed;
+
+        // Strip WhatsApp suffixes (@c.us for contacts, @g.us for groups, @lid for channels)
+        String cleaned = phone.trim();
+        if (cleaned.contains("@")) {
+            cleaned = cleaned.substring(0, cleaned.indexOf("@"));
         }
-        return trimmed;
+
+        // Ensure starts with +
+        if (!cleaned.startsWith("+")) {
+            cleaned = "+" + cleaned;
+        }
+
+        return cleaned;
     }
 
     /**
