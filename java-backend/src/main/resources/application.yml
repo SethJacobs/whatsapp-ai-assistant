@@ -27,7 +27,7 @@ server:
 # Gateway configuration
 gateway:
   base-url: ${GATEWAY_BASE_URL:http://ai-gateway.local}
-  timeout-seconds: 120
+  timeout-seconds: 600  # 10 minutes - prefer waiting over timeout errors
 
 # WhatsApp Bridge configuration
 bridge:
