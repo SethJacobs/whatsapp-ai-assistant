@@ -266,6 +266,11 @@ public class FilesystemTool implements Tool {
                 return ToolExecutionResult.error("Not a directory: " + pathStr);
             }
 
+            // Check if we have read permission
+            if (!Files.isReadable(path)) {
+                return ToolExecutionResult.error("Permission denied: Cannot read directory " + pathStr);
+            }
+
             StringBuilder output = new StringBuilder();
             output.append("📁 ").append(path.toAbsolutePath()).append("\n\n");
 
@@ -281,6 +286,10 @@ public class FilesystemTool implements Tool {
 
             return ToolExecutionResult.success(output.toString());
 
+        } catch (java.nio.file.AccessDeniedException e) {
+            log.debug("Permission denied accessing directory: {}", arguments.get("path"));
+            return ToolExecutionResult.error("Permission denied: Cannot access " + arguments.get("path") +
+                ". Try a directory the app has access to (e.g., /tmp, /app, or use 'exec' with sudo).");
         } catch (Exception e) {
             log.error("Error listing directory", e);
             return ToolExecutionResult.error("Failed to list directory: " + e.getMessage());

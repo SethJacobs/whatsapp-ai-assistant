@@ -36,12 +36,17 @@ services:
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker API access (read-only)
+      - /home/pi:/home/pi  # Mount Pi home directory for filesystem tool
+      - /tmp:/tmp  # Mount tmp for temporary files
     environment:
       - SPRING_PROFILES_ACTIVE=production
       - GATEWAY_BASE_URL=${GATEWAY_BASE_URL:-http://ai-gateway.local}
       - ADMIN_PHONE=${ADMIN_PHONE}
       - ADDITIONAL_ADMIN_PHONES=${ADDITIONAL_ADMIN_PHONES:-}
       - DB_PATH=/app/data/whatsapp-ai.db
+      - HOMEASSISTANT_URL=${HOMEASSISTANT_URL}
+      - HOMEASSISTANT_TOKEN=${HOMEASSISTANT_TOKEN}
+    user: "1000:1000"  # Run as pi user (UID 1000 on Raspberry Pi)
     networks:
       - whatsapp-ai
     depends_on:
