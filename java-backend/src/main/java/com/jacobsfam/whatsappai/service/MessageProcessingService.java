@@ -55,6 +55,9 @@ public class MessageProcessingService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.jacobsfam.whatsappai.service.memory.MemoryExtractionService memoryExtractionService;
+
     /**
      * Process message asynchronously with proper transaction management.
      * The @Transactional annotation ensures Hibernate session is available
@@ -172,6 +175,11 @@ public class MessageProcessingService {
         conversationService.saveConversation(userPhone, history);
         conversationService.addMessage(userPhone, assistantMessage);
 
+        // Auto-extract facts from conversation (async, non-blocking)
+        List<ChatMessage> recentMessages = new ArrayList<>(history);
+        recentMessages.add(assistantMessage);
+        memoryExtractionService.extractAndStore(recentMessages);
+
         return assistantMessage.getContent();
     }
 
@@ -256,6 +264,11 @@ public class MessageProcessingService {
         // No more tool calls - save final conversation and return response
         conversationService.saveConversation(userPhone, history);
         conversationService.addMessage(userPhone, followUpMessage);
+
+        // Auto-extract facts from conversation (async, non-blocking)
+        List<ChatMessage> recentMessages = new ArrayList<>(history);
+        recentMessages.add(followUpMessage);
+        memoryExtractionService.extractAndStore(recentMessages);
 
         return followUpMessage.getContent();
     }
