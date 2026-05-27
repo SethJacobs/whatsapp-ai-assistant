@@ -180,6 +180,6 @@ public class WebSearchTool implements Tool {
 
     @Override
     public Set<String> getRequiredPermissions() {
-        return Set.of("web:search");
+        return Collections.emptySet(); // Everyone can search the web
     }
 }

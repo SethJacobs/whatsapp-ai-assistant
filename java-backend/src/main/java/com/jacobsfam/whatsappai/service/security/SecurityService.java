@@ -66,7 +66,6 @@ public class SecurityService {
                     contact.grantAllPermissions("system");
                     contact.grantAllPermissions("docker");
                     contact.grantAllPermissions("gateway");
-                    contact.grantAllPermissions("web");
                     contact.grantAllPermissions("admin"); // Grant admin permissions (includes filesystem)
                     allowedContactRepository.save(contact);
                     log.info("Created admin contact: {}", normalized);
