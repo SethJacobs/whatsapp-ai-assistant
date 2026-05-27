@@ -73,18 +73,20 @@ public class AlexaAnnounceTool implements Tool {
                 return ToolExecutionResult.error("Message cannot be empty");
             }
 
-            // Build Home Assistant API request
+            // Build Home Assistant notify/alexa_media request (correct API)
             ObjectNode requestBody = objectMapper.createObjectNode();
-            requestBody.putArray("entity_id")
-                .add("media_player.moshe_s_echo_pop")
+            requestBody.putArray("target")
                 .add("media_player.seth_s_echo");
-            requestBody.put("media_content_id", message);
-            requestBody.put("media_content_type", "custom");
+            requestBody.put("message", message);
+
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("type", "tts");
+            requestBody.set("data", data);
 
             String json = objectMapper.writeValueAsString(requestBody);
 
             Request request = new Request.Builder()
-                .url(homeAssistantUrl + "/api/services/media_player/play_media")
+                .url(homeAssistantUrl + "/api/services/notify/alexa_media")
                 .post(RequestBody.create(json, MediaType.get("application/json")))
                 .addHeader("Authorization", "Bearer " + homeAssistantToken)
                 .addHeader("Content-Type", "application/json")
@@ -99,7 +101,7 @@ public class AlexaAnnounceTool implements Tool {
 
                 log.info("Sent Alexa announcement: {}", message);
                 return ToolExecutionResult.success(
-                    "✓ Announcement sent to Alexa devices: \"" + message + "\""
+                    "✓ Announcement sent to Alexa: \"" + message + "\""
                 );
             }
 
