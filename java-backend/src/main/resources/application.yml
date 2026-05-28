@@ -48,6 +48,18 @@ security:
 tools:
   execution-timeout-seconds: 300
 
+# Heartbeat configuration
+heartbeat:
+  enabled: ${HEARTBEAT_ENABLED:true}
+  config-file: ${HEARTBEAT_CONFIG_FILE:/home/pi/ezra-heartbeat/HEARTBEAT.md}
+  scheduler-interval: ${HEARTBEAT_INTERVAL:600000}  # 10 minutes in milliseconds
+  failure-threshold: ${HEARTBEAT_FAILURE_THRESHOLD:3}  # Escalate after 3 consecutive failures
+
+# Admin configuration
+admin:
+  phone: ${ADMIN_PHONE:}
+  timezone: ${ADMIN_TIMEZONE:America/New_York}
+
 # Resilience4j Circuit Breaker
 resilience4j:
   circuitbreaker:
