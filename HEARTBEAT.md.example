@@ -3,26 +3,26 @@ tasks:
   - name: docker-health
     interval: 30m
     prompt: "Use docker_ps tool to check containers. Alert via Alexa if home-assistant, immich, paperless, or ai-gateway are not running."
-    notify: alexa
+    notify: ALEXA
     severity: urgent
 
   - name: gateway-health
     interval: 2h
     prompt: "Use gateway_status tool (if available) to check pi-ai-gateway health. Alert if status is not 'ok' or if gateway is unreachable."
-    notify: whatsapp
+    notify: WHATSAPP
     severity: info
 
   - name: infrastructure-check
     interval: 6h
     prompt: "Run check_ezra_world_infrastructure tool. Alert only if any service is degraded or unreachable."
-    notify: alexa
+    notify: ALEXA
     severity: urgent
     activeHours: "08:00-22:00"
 
   - name: home-assistant-check
     interval: 1h
     prompt: "Check if Home Assistant is reachable at https://ha.jacobsfamjam.dpdns.org. Use web_search or filesystem tool to verify connectivity. Alert if down."
-    notify: alexa
+    notify: ALEXA
     severity: urgent
 
 activeHours: "06:00-23:00"
