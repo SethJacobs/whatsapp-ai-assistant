@@ -20,6 +20,8 @@ spring:
       write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
+    mapper:
+      accept-case-insensitive-enums: true
 
 server:
   port: ${PORT:8081}
