@@ -113,6 +113,6 @@ public class AlexaAnnounceTool implements Tool {
 
     @Override
     public Set<String> getRequiredPermissions() {
-        return Set.of("homeassistant:write");
+        return Set.of(); // Allow all family members to send Alexa announcements
     }
 }
