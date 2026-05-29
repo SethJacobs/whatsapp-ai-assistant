@@ -86,31 +86,14 @@ class WhatsAppClient {
                     return; // Don't forward bot responses
                 }
 
-                // Get bot's own number
-                const botNumber = this.client.info?.wid?.user;
-                if (!botNumber) {
-                    logger.debug('Bot number not available yet, skipping fromMe message');
-                    return;
-                }
-
                 // DEBUG: Log message properties to understand structure
-                logger.info(`[DEBUG] fromMe message - from: ${message.from}, to: ${message.to}, botNumber: ${botNumber}`);
+                const botNumber = this.client.info?.wid?.user;
+                logger.info(`[DEBUG] fromMe message - from: ${message.from}, to: ${message.to}, botNumber: ${botNumber}, body: ${message.body.substring(0, 50)}`);
 
-                // Check if this is a self-message (message to yourself)
-                // Try multiple approaches since we're not sure of the exact structure
-                const fromNumber = message.from.split('@')[0];
-                const toNumber = message.to.split('@')[0];
-
-                const isSelfMessage = (fromNumber === botNumber) || (toNumber === botNumber);
-
-                if (isSelfMessage) {
-                    // This looks like a self-message - forward it
-                    logger.info('Self-message detected, forwarding:', message.body);
-                    await this.handleIncomingMessage(message);
-                } else {
-                    // Message to someone else - ignore it
-                    logger.debug(`Message from ${message.from} to ${message.to}, not self-message, ignoring`);
-                }
+                // For now, forward all fromMe messages (except bot responses)
+                // TODO: Filter to only self-messages once we understand the message structure
+                logger.debug('Forwarding fromMe message');
+                await this.handleIncomingMessage(message);
             }
         });
     }
