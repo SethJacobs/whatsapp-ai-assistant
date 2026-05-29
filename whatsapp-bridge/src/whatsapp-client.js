@@ -86,7 +86,6 @@ class WhatsAppClient {
                     return; // Don't forward bot responses
                 }
 
-                // Only forward if it's a true self-message (sent to own number)
                 // Get bot's own number
                 const botNumber = this.client.info?.wid?.user;
                 if (!botNumber) {
@@ -94,16 +93,18 @@ class WhatsAppClient {
                     return;
                 }
 
-                // Check if message was sent to bot's own number (self-message)
-                const recipientNumber = message.to.split('@')[0]; // Extract number before @c.us or @g.us
+                // For self-messages, the chat is with yourself, so message.from contains your number
+                // For messages to others, message.from will be their number/group
+                const chatId = message.from.split('@')[0]; // Extract number/id before @c.us or @g.us
 
-                if (recipientNumber === botNumber) {
-                    // This is a true self-message to Ezra - forward it
-                    logger.debug('Self-message to bot detected, forwarding:', message.body);
+                // Only forward if this is a chat with yourself (self-message to Ezra)
+                if (chatId === botNumber) {
+                    // This is a self-message chat - forward it
+                    logger.debug('Self-message detected (chat with self), forwarding:', message.body);
                     await this.handleIncomingMessage(message);
                 } else {
-                    // Message sent to someone else - ignore it
-                    logger.debug(`Message sent to ${message.to}, not forwarding (not self-message)`);
+                    // Message in a different chat (to someone else) - ignore it
+                    logger.debug(`Message in chat ${message.from}, not self-chat, ignoring`);
                 }
             }
         });
